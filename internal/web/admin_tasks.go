@@ -31,9 +31,47 @@ func (s *Server) loadTasks(where string, args ...any) ([]schedule.Task, error) {
 }
 
 // tasksFor returns the tasks on worker uid's sheet for day d.
+// A movable task is gone once this worker ticked it on an earlier day, and never reaches a worker
+// who joined after its first day. "All workers" = each worker ticks their own.
 func (s *Server) tasksFor(uid int64, d time.Time) ([]schedule.Task, error) {
-	all, err := s.loadTasks(`WHERE t.active=1 AND (t.user_id IS NULL OR t.user_id=?)`, uid)
+	all, err := s.loadTasks(`WHERE t.active=1 AND (t.user_id IS NULL OR t.user_id=?) AND NOT (t.kind='movable' AND (
+		EXISTS(SELECT 1 FROM task_done d WHERE d.task_id=t.id AND d.user_id=? AND d.done_at IS NOT NULL AND d.day>=t.date AND d.day<?)
+		OR t.date < (SELECT created FROM users WHERE id=?)))`, uid, uid, d.Format(dayFmt), uid)
 	return schedule.ForDay(all, d), err
+}
+
+// dayTask is a task on a worker's day plus what the worker answered for it.
+type dayTask struct {
+	schedule.Task
+	DoneAt int64
+	Reason string
+}
+
+func (s *Server) dayTasks(uid int64, d time.Time) ([]dayTask, error) {
+	ts, err := s.tasksFor(uid, d)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.db.Query(`SELECT task_id,COALESCE(done_at,0),reason FROM task_done WHERE user_id=? AND day=?`, uid, d.Format(dayFmt))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	got := map[int64]dayTask{}
+	for rows.Next() {
+		var id int64
+		var t dayTask
+		if err := rows.Scan(&id, &t.DoneAt, &t.Reason); err != nil {
+			return nil, err
+		}
+		got[id] = t
+	}
+	out := make([]dayTask, len(ts))
+	for i, t := range ts {
+		out[i] = got[t.ID]
+		out[i].Task = t
+	}
+	return out, rows.Err()
 }
 
 type option struct {
@@ -73,9 +111,9 @@ func (s *Server) tasks(w http.ResponseWriter, r *http.Request, u *user) {
 	if puser == 0 && len(workers) > 0 {
 		puser = workers[0].ID
 	}
-	var preview []schedule.Task
+	var preview []dayTask
 	if puser != 0 {
-		if preview, err = s.tasksFor(puser, pday); err != nil {
+		if preview, err = s.dayTasks(puser, pday); err != nil {
 			fail(w, err)
 			return
 		}
@@ -114,6 +152,8 @@ func taskFromForm(r *http.Request) (schedule.Task, error) {
 		t.Mday, t.Weekdays = formInt(r, "nth"), r.FormValue("nthday")
 	case schedule.Once:
 		t.Date = r.FormValue("date")
+	case schedule.Movable:
+		t.Date, t.Every = r.FormValue("first"), formInt(r, "days")
 	}
 	return t, t.Validate()
 }

@@ -89,7 +89,8 @@ func (s *Server) deleteDevice(w http.ResponseWriter, r *http.Request, u *user) {
 
 var eventGroups = map[string]string{
 	"security":   `kind IN ('login_failed','login_refused','login_locked')`,
-	"attendance": `kind IN ('login','arrive','break','resume','end','print')`,
+	"attendance": `kind IN ('login','arrive','break','resume','end','print','logout_no_end')`,
+	"tasks":      `kind IN ('task_done','task_undo','task_skip')`,
 	"admin":      `kind LIKE 'admin.%'`,
 }
 

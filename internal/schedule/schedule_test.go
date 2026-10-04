@@ -26,6 +26,7 @@ func TestOn(t *testing.T) {
 		{Task{Kind: Nth, Mday: 1, Weekdays: "1"}, []string{"2026-10-05", "2026-11-02"}, []string{"2026-10-12", "2026-10-06"}}, // 1st Monday
 		{Task{Kind: Nth, Mday: -1, Weekdays: "5"}, []string{"2026-10-30"}, []string{"2026-10-23"}},                            // last Friday
 		{Task{Kind: Once, Date: "2026-12-25"}, []string{"2026-12-25"}, []string{"2026-12-24", "2027-12-25"}},
+		{Task{Kind: Movable, Date: "2026-10-30", Every: 3}, []string{"2026-10-30", "2026-11-01"}, []string{"2026-10-29", "2026-11-02"}},
 	}
 	for _, c := range cases {
 		for _, d := range c.yes {

@@ -67,6 +67,9 @@ tr.paused td { opacity: .55; }
   border-bottom: 1px solid var(--pico-muted-border-color); }
 .tasklist .time { min-width: 7.5rem; color: var(--pico-muted-color); font-variant-numeric: tabular-nums; }
 .tasklist li.important { border-left: 4px solid var(--bad); }
+.tasklist .what { flex: 1; }
+.tasklist form { margin: 0; }
+.tasklist li.done .what b { text-decoration: line-through; color: var(--pico-muted-color); }
 .login { max-width: 420px; margin: 3rem auto; }
 
 /* ---------- report ---------- */

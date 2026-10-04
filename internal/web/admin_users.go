@@ -12,7 +12,7 @@ import (
 )
 
 func (s *Server) listUsers(where string, args ...any) ([]user, error) {
-	rows, err := s.db.Query(`SELECT id,name,phone,role,start_at,active,
+	rows, err := s.db.Query(`SELECT id,name,phone,role,start_at,active,created,
 		COALESCE((SELECT group_concat(device_id) FROM user_devices WHERE user_id=users.id),'')
 		FROM users `+where+` ORDER BY role DESC, active DESC, name`, args...)
 	if err != nil {
@@ -23,7 +23,7 @@ func (s *Server) listUsers(where string, args ...any) ([]user, error) {
 	for rows.Next() {
 		var u user
 		var devs string
-		if err := rows.Scan(&u.ID, &u.Name, &u.Phone, &u.Role, &u.StartAt, &u.Active, &devs); err != nil {
+		if err := rows.Scan(&u.ID, &u.Name, &u.Phone, &u.Role, &u.StartAt, &u.Active, &u.Created, &devs); err != nil {
 			return nil, err
 		}
 		for _, v := range strings.Split(devs, ",") {
@@ -110,8 +110,8 @@ func (s *Server) saveUser(w http.ResponseWriter, r *http.Request, u *user) {
 	}
 	defer tx.Rollback()
 	if id == 0 {
-		err = tx.QueryRow(`INSERT INTO users(name,phone,pw,role,start_at) VALUES(?,?,?,?,?) RETURNING id`,
-			f.Name, f.Phone, auth.HashPassword(pw), f.Role, f.StartAt).Scan(&id)
+		err = tx.QueryRow(`INSERT INTO users(name,phone,pw,role,start_at,created) VALUES(?,?,?,?,?,?) RETURNING id`,
+			f.Name, f.Phone, auth.HashPassword(pw), f.Role, f.StartAt, time.Now().Format(dayFmt)).Scan(&id)
 	} else {
 		_, err = tx.Exec(`UPDATE users SET name=?, phone=?, role=?, start_at=?, active=? WHERE id=?`, f.Name, f.Phone, f.Role, f.StartAt, f.Active, id)
 		if err == nil && pw != "" { // new password: sign out their other sessions

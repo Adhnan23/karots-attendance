@@ -38,6 +38,7 @@ type data = map[string]any
 type user struct {
 	ID                         int64
 	Name, Phone, Role, StartAt string
+	Created                    string // join day YYYY-MM-DD, '' = before tracking
 	Active                     bool
 	Devices                    []int64
 }
@@ -62,6 +63,7 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("GET /me", worker(s.home))
 	m.HandleFunc("GET /me/print", worker(s.printSheet))
 	m.HandleFunc("POST /me/{action}", worker(s.action))
+	m.HandleFunc("POST /me/tasks/{id}/{op}", worker(s.markTask))
 
 	admin := func(h handler) http.HandlerFunc { return s.require("admin", h) }
 	m.HandleFunc("GET /admin", admin(s.today))
@@ -225,7 +227,9 @@ var statuses = map[string][2]string{ // status → label, badge colour
 var eventKinds = map[string][2]string{
 	"login": {"Logged in", "green"}, "arrive": {"Arrived", "green"}, "break": {"Break", "amber"},
 	"resume": {"Resumed", "green"}, "end": {"End day", "blue"}, "print": {"Printed sheet", "blue"},
-	"login_failed": {"Wrong password", "red"}, "login_refused": {"Blocked device", "red"}, "login_locked": {"Locked out", "red"},
+	"task_done": {"Task done", "green"}, "task_undo": {"Task unticked", "amber"}, "task_skip": {"Task not done", "red"},
+	"logout_no_end": {"Left without End day", "red"},
+	"login_failed":  {"Wrong password", "red"}, "login_refused": {"Blocked device", "red"}, "login_locked": {"Locked out", "red"},
 }
 
 func badge(label, colour string) template.HTML {
@@ -240,6 +244,7 @@ var funcs = template.FuncMap{
 	"dur":   func(s int64) string { return fmt.Sprintf("%dh %02dm", s/3600, s%3600/60) },
 	"hours": func(s int64) string { return strconv.FormatFloat(float64(s)/3600, 'f', 1, 64) },
 	"inc":   func(i int) int { return i + 1 },
+	"tl":    func(ts []dayTask, mine bool) data { return data{"Tasks": ts, "Mine": mine} },
 	"has": func(ids []int64, id int64) bool {
 		for _, x := range ids {
 			if x == id {

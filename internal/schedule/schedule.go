@@ -21,6 +21,7 @@ const (
 	Monthly  = "monthly"  // on day Mday of the month; -1 = last day (also short months)
 	Nth      = "nth"      // the Mday-th (1..4, -1 = last) weekday Weekdays (one digit) of the month
 	Once     = "once"     // only on Date
+	Movable  = "movable"  // from Date for Every days, until ticked (the "until ticked" part lives in the web layer)
 )
 
 type Kind struct{ Value, Label string }
@@ -28,6 +29,7 @@ type Kind struct{ Value, Label string }
 var Kinds = []Kind{
 	{Daily, "Every day"}, {Weekly, "Weekly on chosen days"}, {Interval, "Every N days"},
 	{Monthly, "Monthly on a date"}, {Nth, "Monthly on a weekday (e.g. 1st Monday)"}, {Once, "Once — a special day"},
+	{Movable, "Movable — moves to the next day until done"},
 }
 
 var ShortDays = []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
@@ -80,8 +82,19 @@ func (t Task) On(d time.Time) bool {
 		return (d.Day()-1)/7+1 == t.Mday
 	case Once:
 		return day == t.Date
+	case Movable:
+		return day >= t.Date && day <= t.LastDay()
 	}
 	return false
+}
+
+// LastDay is the final day a movable task can show (YYYY-MM-DD).
+func (t Task) LastDay() string {
+	d, err := time.Parse(DayFmt, t.Date)
+	if err != nil {
+		return ""
+	}
+	return d.AddDate(0, 0, t.Every-1).Format(DayFmt)
 }
 
 func lastDay(d time.Time) int { return time.Date(d.Year(), d.Month()+1, 0, 0, 0, 0, 0, time.UTC).Day() }
@@ -140,6 +153,8 @@ func (t Task) Schedule() string {
 		s = fmt.Sprintf("%s %s of every month", NthName(t.Mday), time.Weekday(d))
 	case Once:
 		return "Once on " + PrettyDay(t.Date)
+	case Movable:
+		return "From " + PrettyDay(t.Date) + ", moves on until done · expires after " + PrettyDay(t.LastDay())
 	}
 	if t.StartDate != "" {
 		s += " · from " + PrettyDay(t.StartDate)
@@ -237,6 +252,12 @@ func (t *Task) Validate() error {
 			return errors.New("pick the date")
 		}
 		keep(t.Date, "", 0, 0)
+		t.StartDate, t.EndDate = "", ""
+	case Movable:
+		if t.Date == "" || t.Every < 1 || t.Every > 365 {
+			return errors.New("movable needs a first day and 1 to 365 days to keep it")
+		}
+		keep(t.Date, "", t.Every, 0)
 		t.StartDate, t.EndDate = "", ""
 	default:
 		return errors.New("pick how the task repeats")

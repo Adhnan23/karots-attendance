@@ -40,12 +40,20 @@
 </body>
 </html>{{end}}
 
-{{define "tasklist"}}{{if .}}
+{{define "tasklist"}}{{if .Tasks}}
 <ol class="tasklist">
-{{range .}}<li{{if .Important}} class="important"{{end}}>
+{{range .Tasks}}<li class="{{if .Important}}important{{end}}{{if .DoneAt}} done{{end}}">
   <span class="time">{{or .Time "Any time"}}</span>
-  <div><b>{{.Title}}</b>{{if .Important}} <span class="badge red">Important</span>{{end}}
-  {{with .Notes}}<br><small class="muted">{{.}}</small>{{end}}</div>
+  <div class="what"><b>{{.Title}}</b>{{if .Important}} <span class="badge red">Important</span>{{end}}
+  {{with .Notes}}<br><small class="muted">{{.}}</small>{{end}}
+  {{if and (eq .Kind "movable") (not .DoneAt)}}<br><small class="muted">↪ Moves to the next day until done · last day {{.LastDay}}</small>{{end}}
+  {{with .Reason}}<br><small><span class="badge red">Not done</span> {{.}}</small>{{end}}</div>
+  {{if .DoneAt}}<span class="badge green">✓ Done {{clock .DoneAt}}</span>{{end}}
+  {{if $.Mine}}{{if .DoneAt}}
+  <form method="post" action="/me/tasks/{{.ID}}/undo" data-confirm="Untick “{{.Title}}”? It will show as not done."><button class="outline secondary sm">Undo</button></form>
+  {{else}}
+  <form method="post" action="/me/tasks/{{.ID}}/done" data-ask="Did you finish “{{.Title}}”? Type yes or no."><input type="hidden" name="answer"><button class="outline sm">☐ Done</button></form>
+  {{end}}{{end}}
 </li>{{end}}
 </ol>
 {{else}}<p class="muted">No tasks for this day 🎉</p>{{end}}{{end}}

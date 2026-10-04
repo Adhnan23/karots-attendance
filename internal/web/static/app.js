@@ -1,9 +1,15 @@
-// Small progressive enhancement. Every page works without it except auto-print and the task-form field toggling.
+// Small progressive enhancement. Every page works without it except auto-print, the task-form field toggling and ticking tasks.
 
 // <form data-confirm="..."> asks first; then buttons are disabled so a double-click can't submit twice.
 document.addEventListener('submit', e => {
   const form = e.target
   if (form.dataset.confirm && !confirm(form.dataset.confirm)) return e.preventDefault()
+  // <form data-ask="..."> asks for a typed answer (e.g. "yes") and sends it as "answer".
+  if (form.dataset.ask) {
+    const a = prompt(form.dataset.ask)
+    if (a === null) return e.preventDefault()
+    form.elements.answer.value = a
+  }
   setTimeout(() => form.querySelectorAll('button').forEach(b => (b.disabled = true)))
 })
 

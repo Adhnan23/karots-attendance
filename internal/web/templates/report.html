@@ -26,6 +26,25 @@
   </tbody>
 </table>
 </div>
+
+{{with .Movables}}
+<h3>Movable tasks</h3>
+<div class="overflow-auto">
+<table class="striped">
+  <thead><tr><th>Task</th><th>Worker</th><th>Status</th><th>Moved</th><th>Last day</th></tr></thead>
+  <tbody>
+  {{range .}}<tr>
+    <td><b>{{.Title}}</b></td><td>{{.Worker}}</td>
+    <td>{{if eq .Status "done"}}<span class="badge green">✓ Done {{.Done}}</span>
+      {{else if eq .Status "expired"}}<span class="badge red">Expired, not done</span>{{with .Reason}}<br><small>{{.}}</small>{{end}}
+      {{else}}<span class="badge amber">Moving, not done yet</span>{{end}}</td>
+    <td>{{if .Moved}}{{.Moved}} day(s){{else}}–{{end}}</td>
+    <td class="nowrap">{{.Last}}</td>
+  </tr>{{end}}
+  </tbody>
+</table>
+</div>
+{{end}}
 {{template "foot" .}}{{end}}
 
 {{define "report"}}{{template "head" .}}
@@ -33,6 +52,7 @@
   <h2>Report</h2>
   <div class="np row-actions">
     <a role="button" class="outline sm" href="/admin/report.csv?from={{.From}}&to={{.To}}&user={{.UserID}}">⬇ CSV</a>
+    <a role="button" class="outline sm" href="/admin/report.csv?tasks=1&from={{.From}}&to={{.To}}&user={{.UserID}}">⬇ Tasks CSV</a>
     <button type="button" class="outline sm" data-print>🖨 Print</button>
   </div>
 </div>
@@ -92,6 +112,33 @@
 </div>
 <p class="legend"><span class="here">present</span> <span class="late">late</span> <span class="open">not ended</span> <span class="away">· absent</span></p>
 {{else}}<p class="muted">Pick {{$.GridMax}} days or fewer to see the attendance grid.</p>{{end}}
+
+<h3>Tasks</h3>
+<div class="overflow-auto">
+<table class="striped">
+  <thead><tr><th>Worker</th><th>Done</th><th>Not done</th><th>Moved on</th><th>Still open today</th></tr></thead>
+  <tbody>
+  {{range $.TaskSums}}<tr>
+    <td><b>{{.Name}}</b></td><td>{{.Done}}</td>
+    <td>{{if .NotDone}}<span class="badge red">{{.NotDone}}</span>{{else}}0{{end}}</td>
+    <td>{{.Moved}}</td><td>{{.Open}}</td>
+  </tr>{{else}}<tr><td colspan="5">No tasks on days anyone worked.</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+{{with $.NotDone}}
+<div class="overflow-auto">
+<table class="striped">
+  <thead><tr><th>Date</th><th>Worker</th><th>Task not done</th><th>Reason</th></tr></thead>
+  <tbody>
+  {{range .}}<tr>
+    <td class="nowrap">{{.Day}}</td><td>{{.Worker}}</td><td>{{.Title}}</td>
+    <td>{{or .Reason "— no reason (didn't press End day)"}}</td>
+  </tr>{{end}}
+  </tbody>
+</table>
+</div>
+{{end}}
 
 <h3>Sessions</h3>
 <div class="overflow-auto">

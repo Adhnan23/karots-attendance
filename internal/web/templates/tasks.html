@@ -53,6 +53,11 @@
       </label>
     </div>
 
+    <div class="grid" data-kind="movable">
+      <label>First day<input type="date" name="first" value="{{.F.Date}}"></label>
+      <label>Keep for how many days<input type="number" name="days" min="1" max="365" value="{{.F.Every}}"></label>
+    </div>
+
     <label data-kind="once">Date<input type="date" name="date" value="{{.F.Date}}"></label>
 
     <div class="grid">
@@ -87,7 +92,7 @@
     <button type="submit" class="outline">Preview</button>
   </form>
   {{if .PUser}}
-    {{template "tasklist" .Preview}}
+    {{template "tasklist" (tl .Preview false)}}
     <a role="button" class="secondary" href="/admin/sheet?user={{.PUser}}&date={{.PDate}}">🖨 Print this sheet</a>
   {{else}}<p class="muted">Add a worker to preview sheets.</p>{{end}}
 </article>

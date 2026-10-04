@@ -126,7 +126,10 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 			page("You can't log in from this device. Use the shop computer.")
 			return
 		}
-		life = 16 * time.Hour
+		// Ends at midnight, so a forgotten open /me page can't auto-refresh into a fake arrival tomorrow.
+		// ponytail: no shifts across midnight; give night workers a longer life if the shop ever has them.
+		y, m, d := now.Date()
+		life = min(16*time.Hour, time.Date(y, m, d+1, 0, 0, 0, 0, time.Local).Sub(now))
 	}
 	s.lim.Reset(ip)
 	tok, exp := auth.NewToken(), now.Add(life)
@@ -153,6 +156,13 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
+	if u := s.current(r); u != nil && u.Role == "worker" {
+		var open int
+		s.db.QueryRow(`SELECT COUNT(*) FROM shifts WHERE user_id=? AND ended IS NULL`, u.ID).Scan(&open)
+		if open > 0 {
+			s.event(r, u.ID, u.Name, "logout_no_end", "logged out without End day; task reasons skipped")
+		}
+	}
 	if tok := s.currentToken(r); tok != "" {
 		s.db.Exec(`DELETE FROM logins WHERE token_hash=?`, tok)
 	}

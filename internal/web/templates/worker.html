@@ -45,5 +45,38 @@
 {{end}}
 
 <h3>Today's tasks <small class="muted">({{len .Tasks}})</small></h3>
-{{template "tasklist" .Tasks}}
+{{template "tasklist" (tl .Tasks true)}}
+
+{{with .Ask}}
+<dialog open>
+<article>
+  <header><b>Did you finish “{{.Title}}”?</b></header>
+  <form method="post" action="/me/tasks/{{.ID}}/done">
+    <label>Type yes or no<input name="answer" required autofocus autocomplete="off"></label>
+    <div class="grid">
+      <a role="button" class="secondary" href="/me">Cancel</a>
+      <button type="submit">Submit</button>
+    </div>
+  </form>
+</article>
+</dialog>
+{{end}}
+
+{{with .Pending}}
+<dialog open>
+<article>
+  <header><b>Before you go</b></header>
+  <p>These tasks aren't ticked. If you did them, go back and tick them. If not, write why.</p>
+  <form method="post" action="/me/end">
+    {{range .}}<label><b>{{.Title}}</b> <small class="muted">{{or .Time "Any time"}}</small>
+      <textarea name="why{{.ID}}" rows="2" minlength="{{$.MinReason}}" maxlength="500" required placeholder="Why wasn't this done?"></textarea></label>
+    {{end}}
+    <div class="grid">
+      <a role="button" class="secondary" href="/me">← Back to tasks</a>
+      <button type="submit" class="contrast">Submit and end day</button>
+    </div>
+  </form>
+</article>
+</dialog>
+{{end}}
 {{template "foot" .}}{{end}}
