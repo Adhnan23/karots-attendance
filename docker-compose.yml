@@ -1,0 +1,17 @@
+services:
+  attendance:
+    build: .
+    image: karots-attendance
+    restart: unless-stopped
+    # Runs as this host user so ./data stays owned by you (check yours with `id -u` / `id -g`).
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    environment:
+      TZ: Asia/Colombo
+    ports:
+      - "8080:8080"           # behind Caddy/nginx on the host use "127.0.0.1:8080:8080"
+    # command: ["-proxy"]     # enable ONLY when behind a reverse proxy (real client IPs + HTTPS cookies)
+    volumes:
+      - ./data:/data          # attendance.db lives here — back up this folder
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]

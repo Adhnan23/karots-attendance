@@ -1,0 +1,37 @@
+{{define "sheet"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Task sheet · {{.Name}} · {{.Date.Format "2006-01-02"}}</title>
+<link rel="stylesheet" href="/static/sheet.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body data-autoprint="{{.Back}}">
+<p class="np"><a href="{{.Back}}">← Back</a> <button type="button" data-print>🖨 Print</button></p>
+<h1>Daily Task Sheet</h1>
+<table class="info">
+  <tr>
+    <td><b>Name:</b> {{.Name}}</td>
+    <td><b>Date:</b> {{.Date.Format "Monday, 02 Jan 2006"}}</td>
+    <td><b>Arrived:</b> {{if .Arrived}}{{clock .Arrived}}{{else}}__________{{end}}</td>
+  </tr>
+</table>
+<table class="tasks">
+  <thead><tr><th class="n">#</th><th class="t">Time</th><th>Task</th><th class="d">Done ✓</th><th class="r">Remarks</th></tr></thead>
+  <tbody>
+  {{range $i, $t := .Tasks}}<tr>
+    <td>{{inc $i}}</td><td>{{$t.Time}}</td>
+    <td>{{if $t.Important}}<b>★ {{$t.Title}}</b>{{else}}{{$t.Title}}{{end}}{{with $t.Notes}}<div class="note">{{.}}</div>{{end}}</td>
+    <td></td><td></td>
+  </tr>{{end}}
+  {{range .Blank}}<tr class="blank"><td></td><td></td><td></td><td></td><td></td></tr>{{end}}
+  </tbody>
+</table>
+<div class="sig">
+  <div>Worker signature</div>
+  <div>Time finished</div>
+  <div>Checked by</div>
+</div>
+</body>
+</html>{{end}}

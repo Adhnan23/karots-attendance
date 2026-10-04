@@ -1,0 +1,155 @@
+{{define "today"}}{{template "head" .}}
+<hgroup>
+  <h2>Today</h2>
+  <p>{{.Now.Format "Monday, 02 January 2006"}} · updated {{.Now.Format "3:04 PM"}}</p>
+</hgroup>
+<div class="kpis">
+  <article><small>Present</small><b>{{.Present}} / {{len .Cards}}</b></article>
+  <article class="{{if .Working}}green{{end}}"><small>Working now</small><b>{{.Working}}</b></article>
+  <article class="{{if .OnBreak}}amber{{end}}"><small>On break</small><b>{{.OnBreak}}</b></article>
+  <article class="{{if .Late}}amber{{end}}"><small>Late today</small><b>{{.Late}}</b></article>
+</div>
+{{range .Stale}}<p class="flash warn">⚠ {{.Name}} never pressed End day on {{.Day}}. <a href="/admin/shifts/{{.ID}}">Set the leave time</a></p>{{end}}
+{{if .Refused}}<p class="flash err">🔒 {{.Refused}} failed or blocked login attempt(s) today. <a href="/admin/security?g=security">See activity</a></p>{{end}}
+<div class="overflow-auto">
+<table class="striped">
+  <thead><tr><th>Worker</th><th>Status</th><th>Arrived</th><th>Worked</th><th>Breaks</th><th>Task sheet</th></tr></thead>
+  <tbody>
+  {{range .Cards}}<tr>
+    <td><b>{{.Name}}</b></td>
+    <td class="nowrap">{{status .Status}}{{if .Late}} <span class="badge amber">late</span>{{end}}</td>
+    <td>{{if .In}}{{clock .In}}{{else}}–{{end}}</td>
+    <td>{{if .In}}{{dur .Worked}}{{else}}–{{end}}</td>
+    <td>{{if .In}}{{dur .Break}}{{else}}–{{end}}</td>
+    <td>{{if .Printed}}✓ {{clock .Printed}}{{else if .In}}<span class="badge red">not printed</span>{{else}}–{{end}}</td>
+  </tr>{{else}}<tr><td colspan="6">No workers yet — <a href="/admin/users">add one</a>.</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+{{template "foot" .}}{{end}}
+
+{{define "report"}}{{template "head" .}}
+<div class="pagehead">
+  <h2>Report</h2>
+  <div class="np row-actions">
+    <a role="button" class="outline sm" href="/admin/report.csv?from={{.From}}&to={{.To}}&user={{.UserID}}">⬇ CSV</a>
+    <button type="button" class="outline sm" data-print>🖨 Print</button>
+  </div>
+</div>
+
+<form method="get" action="/admin/report" class="np filters">
+  <div class="grid">
+    <label>From<input type="date" name="from" value="{{.From}}"></label>
+    <label>To<input type="date" name="to" value="{{.To}}"></label>
+    <label>Worker
+      <select name="user">
+        <option value="0">All workers</option>
+        {{range .Workers}}<option value="{{.ID}}" {{if eq .ID $.UserID}}selected{{end}}>{{.Name}}{{if not .Active}} (inactive){{end}}</option>{{end}}
+      </select>
+    </label>
+    <label class="btn-label">&nbsp;<button type="submit">Show</button></label>
+  </div>
+</form>
+<nav class="chips np">{{range .Presets}}<a href="/admin/report?from={{.From}}&to={{.To}}&user={{$.UserID}}" {{if and (eq .From $.From) (eq .To $.To)}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>
+<p class="print-only"><b>{{.From}} → {{.To}}</b></p>
+
+{{with .R}}
+<div class="kpis">
+  <article><small>Total worked</small><b>{{dur .TotalWorked}}</b></article>
+  <article><small>Days present</small><b>{{.PersonDays}}</b></article>
+  <article><small>Avg per day</small><b>{{dur .AvgDay}}</b></article>
+  <article class="{{if .Late}}amber{{end}}"><small>Late arrivals</small><b>{{.Late}}</b></article>
+  <article class="{{if .Unprinted}}amber{{end}}"><small>Sheets not printed</small><b>{{.Unprinted}}</b></article>
+  <article class="{{if .NotEnded}}red{{end}}"><small>Not ended</small><b>{{.NotEnded}}</b></article>
+</div>
+
+<h3>By worker</h3>
+<div class="overflow-auto">
+<table class="striped">
+  <thead><tr><th>Worker</th><th>Days</th><th>Worked</th><th>Avg / day</th><th>Avg arrival</th><th>Late</th><th>Breaks</th><th>Not printed</th></tr></thead>
+  <tbody>
+  {{range .Totals}}<tr>
+    <td><b>{{.Name}}</b></td><td>{{.Days}}</td>
+    <td class="barcell"><b>{{dur .Worked}}</b><div class="bar"><span style="width:{{.Pct}}%"></span></div></td>
+    <td>{{dur .AvgDay}}</td><td class="nowrap">{{or .AvgIn "–"}}</td>
+    <td>{{if .Late}}<span class="badge amber">{{.Late}}</span>{{else}}0{{end}}</td>
+    <td>{{dur .Break}}</td>
+    <td>{{if .Unprinted}}<span class="badge red">{{.Unprinted}}</span>{{else}}0{{end}}</td>
+  </tr>{{else}}<tr><td colspan="8">No workers.</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+
+{{if .Days}}
+<h3>Attendance grid <small class="muted">(hours per day)</small></h3>
+<div class="overflow-auto">
+<table class="att-grid">
+  <thead><tr><th>Worker</th>{{range .Days}}<th class="{{if eq .Weekday 0}}sun{{end}}">{{.Format "02"}}<br><small>{{.Format "Mon"}}</small></th>{{end}}</tr></thead>
+  <tbody>
+  {{range .Grid}}<tr><th>{{.Name}}</th>{{range .Cells}}<td class="{{if .Open}}open{{else if .Late}}late{{else if .Has}}here{{else}}away{{end}}{{if .Today}} today{{end}}">{{if .Has}}{{hours .Worked}}{{else}}·{{end}}</td>{{end}}</tr>{{end}}
+  </tbody>
+</table>
+</div>
+<p class="legend"><span class="here">present</span> <span class="late">late</span> <span class="open">not ended</span> <span class="away">· absent</span></p>
+{{else}}<p class="muted">Pick {{$.GridMax}} days or fewer to see the attendance grid.</p>{{end}}
+
+<h3>Sessions</h3>
+<div class="overflow-auto">
+<table class="striped">
+  <thead><tr><th>Date</th><th>Worker</th><th>In</th><th>Out</th><th>Breaks</th><th>Worked</th><th>Sheet</th><th>Status</th><th class="np"></th></tr></thead>
+  <tbody>
+  {{range .Sessions}}<tr>
+    <td class="nowrap">{{date .Start}}</td><td>{{.Name}}</td>
+    <td class="nowrap">{{clock .Start}}{{if .Late}} <span class="badge amber">late</span>{{end}}</td>
+    <td class="nowrap">{{if .End}}{{clock .End}}{{else}}–{{end}}</td>
+    <td class="nowrap">{{dur .Break}}{{range .Breaks}}<br><small class="muted">{{clock .Start}}–{{if .End}}{{clock .End}}{{else}}now{{end}}</small>{{end}}</td>
+    <td class="nowrap"><b>{{dur .Worked}}</b></td>
+    <td class="nowrap">{{if .Printed}}✓ {{clock .Printed}}{{else}}<span class="badge red">no</span>{{end}}</td>
+    <td class="nowrap">{{status .Status}}{{if .Edited}} <span class="badge gray">edited</span>{{end}}</td>
+    <td class="np"><a href="/admin/shifts/{{.ID}}">Edit</a></td>
+  </tr>{{else}}<tr><td colspan="9">No sessions in this range.</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+{{end}}
+
+<details class="np">
+  <summary>➕ Add a missed session</summary>
+  <form method="post" action="/admin/shifts">
+    <div class="grid">
+      <label>Worker<select name="user" required>{{range .Workers}}{{if .Active}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select></label>
+      <label>Arrived<input type="datetime-local" name="in" required></label>
+      <label>Left<input type="datetime-local" name="out" required></label>
+    </div>
+    <button type="submit">Add session</button>
+  </form>
+</details>
+{{template "foot" .}}{{end}}
+
+{{define "shift"}}{{template "head" .}}
+<p><a href="/admin/report?from={{.S.Day}}&to={{.S.Day}}">← Back to report</a></p>
+<hgroup>
+  <h2>Edit session</h2>
+  <p>{{.S.Name}} · {{date .S.Start}} · {{status .S.Status}}{{if .S.Edited}} <span class="badge gray">edited</span>{{end}}</p>
+</hgroup>
+<article>
+  <form method="post" action="/admin/shifts/{{.S.ID}}">
+    <div class="grid">
+      <label>Arrived<input type="datetime-local" name="in" value="{{dtl .S.Start}}" required></label>
+      <label>Left<input type="datetime-local" name="out" value="{{if .S.End}}{{dtl .S.End}}{{end}}">
+        <small>Leave empty only if they are still working today.</small></label>
+    </div>
+    <button type="submit">Save</button>
+  </form>
+</article>
+<h3>Breaks</h3>
+{{if .S.Breaks}}<table>
+  <tbody>{{range .S.Breaks}}<tr>
+    <td>{{clock .Start}} – {{if .End}}{{clock .End}}{{else}}still on break{{end}}</td>
+    <td class="right"><form method="post" action="/admin/breaks/{{.ID}}/delete" data-confirm="Delete this break?"><button class="outline secondary sm">Delete</button></form></td>
+  </tr>{{end}}</tbody>
+</table>{{else}}<p class="muted">No breaks.</p>{{end}}
+<form method="post" action="/admin/shifts/{{.S.ID}}/delete" data-confirm="Delete this whole session? This can't be undone.">
+  <button class="outline contrast sm">Delete session</button>
+</form>
+{{template "foot" .}}{{end}}

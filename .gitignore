@@ -1,0 +1,7 @@
+/attendance
+/dist/
+/data/
+/backups/
+*.db
+*.db-*
+.playwright-mcp/

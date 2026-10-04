@@ -1,0 +1,51 @@
+{{define "head"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>{{with .Title}}{{.}} · {{end}}Karots Attendance</title>
+<link rel="stylesheet" href="/static/pico.min.css">
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body{{if .Refresh}} data-refresh="60"{{end}}>
+{{with .U}}<header class="topbar">
+<nav class="container">
+  <ul><li><a href="/" class="brand">Karots <span class="muted">Attendance</span></a></li></ul>
+  {{if eq .Role "admin"}}
+  <ul class="wide">{{template "links" $}}</ul>
+  <ul class="narrow"><li><details class="dropdown"><summary>☰ Menu</summary><ul dir="rtl">{{template "links" $}}</ul></details></li></ul>
+  {{else}}
+  <ul><li><span class="muted">{{.Name}}</span></li></ul>
+  {{end}}
+</nav>
+</header>{{end}}
+<main class="container">
+{{with .Err}}<p class="flash err" role="alert">{{.}}</p>{{end}}
+{{with .Msg}}<p class="flash ok" role="status">{{.}}</p>{{end}}
+{{end}}
+
+{{define "links"}}
+<li><a href="/admin" {{if eq .Nav "today"}}aria-current="page"{{end}}>Today</a></li>
+<li><a href="/admin/report" {{if eq .Nav "report"}}aria-current="page"{{end}}>Report</a></li>
+<li><a href="/admin/tasks" {{if eq .Nav "tasks"}}aria-current="page"{{end}}>Tasks</a></li>
+<li><a href="/admin/users" {{if eq .Nav "users"}}aria-current="page"{{end}}>Users</a></li>
+<li><a href="/admin/devices" {{if eq .Nav "devices"}}aria-current="page"{{end}}>Devices</a></li>
+<li><a href="/admin/security" {{if eq .Nav "security"}}aria-current="page"{{end}}>Security</a></li>
+<li><form method="post" action="/logout"><button class="outline secondary sm">Log out</button></form></li>
+{{end}}
+
+{{define "foot"}}</main>
+</body>
+</html>{{end}}
+
+{{define "tasklist"}}{{if .}}
+<ol class="tasklist">
+{{range .}}<li{{if .Important}} class="important"{{end}}>
+  <span class="time">{{or .Time "Any time"}}</span>
+  <div><b>{{.Title}}</b>{{if .Important}} <span class="badge red">Important</span>{{end}}
+  {{with .Notes}}<br><small class="muted">{{.}}</small>{{end}}</div>
+</li>{{end}}
+</ol>
+{{else}}<p class="muted">No tasks for this day 🎉</p>{{end}}{{end}}

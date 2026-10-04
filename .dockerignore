@@ -1,0 +1,7 @@
+attendance
+dist
+data
+*.db
+*.db-*
+.git
+.playwright-mcp

@@ -1,0 +1,49 @@
+{{define "login"}}{{template "head" .}}
+<article class="login">
+  <hgroup>
+    <h2>Karots Attendance</h2>
+    <p>Log in with your phone number</p>
+  </hgroup>
+  <form method="post" action="/login">
+    <label>Phone number
+      <input name="phone" type="tel" inputmode="tel" autocomplete="username" value="{{.Phone}}" required autofocus>
+    </label>
+    <label>Password
+      <input name="password" type="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit">Log in</button>
+  </form>
+</article>
+{{template "foot" .}}{{end}}
+
+{{define "worker"}}{{template "head" .}}
+<hgroup>
+  <h2>Hi {{.U.Name}} 👋</h2>
+  <p>{{.Now.Format "Monday, 02 January 2006"}}</p>
+</hgroup>
+
+<div class="kpis">
+  <article><small>Arrived</small><b>{{clock .S.Started}}</b></article>
+  <article><small>Worked so far</small><b>{{dur .Worked}}</b></article>
+  <article><small>Breaks</small><b>{{dur .Break}}</b></article>
+  <article class="{{if not .S.Printed.Valid}}amber{{end}}"><small>Task sheet</small>
+    <b>{{if .S.Printed.Valid}}✓ {{clock .S.Printed.Int64}}{{else}}Not printed{{end}}</b></article>
+</div>
+
+{{if .OnBreak}}
+<article class="callout center">
+  <h3>☕ On break since {{clock .BreakSince}}</h3>
+  <form method="post" action="/me/resume"><button class="big">▶ Resume work</button></form>
+</article>
+{{else}}
+{{if not .S.Printed.Valid}}<p class="flash warn">Print today's task sheet before you start work.</p>{{end}}
+<div class="grid actions">
+  <a role="button" class="big" href="/me/print">🖨 Print task sheet</a>
+  <form method="post" action="/me/pause"><button class="big secondary">⏸ Take a break</button></form>
+  <form method="post" action="/me/end" data-confirm="End your day and go home?"><button class="big contrast">⏹ End day</button></form>
+</div>
+{{end}}
+
+<h3>Today's tasks <small class="muted">({{len .Tasks}})</small></h3>
+{{template "tasklist" .Tasks}}
+{{template "foot" .}}{{end}}

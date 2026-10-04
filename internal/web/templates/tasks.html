@@ -1,0 +1,116 @@
+{{define "tasks"}}{{template "head" .}}
+<div class="pagehead">
+  <h2>Tasks</h2>
+  <span class="muted">{{.ActiveCount}} active · {{len .Tasks}} total</span>
+</div>
+
+<div class="split">
+<article>
+  <header><b>{{if .F.ID}}✏️ Edit task{{else}}➕ New task{{end}}</b></header>
+  <form method="post" action="/admin/tasks{{if .F.ID}}/{{.F.ID}}{{end}}">
+    <label>Task<input name="title" value="{{.F.Title}}" required maxlength="200" placeholder="e.g. Clean the display shelves"></label>
+    <label>Notes <small class="muted">(optional, printed under the task)</small>
+      <textarea name="notes" rows="2" maxlength="1000">{{.F.Notes}}</textarea></label>
+
+    <div class="grid">
+      <label>For
+        <select name="user">
+          <option value="0">All workers</option>
+          {{range .Workers}}<option value="{{.ID}}" {{if eq .ID $.F.UserID}}selected{{end}}>{{.Name}}</option>{{end}}
+        </select>
+      </label>
+      <label>Repeat
+        <select name="kind">
+          {{range .Kinds}}<option value="{{.Value}}" {{if eq .Value $.F.Kind}}selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+      </label>
+    </div>
+
+    <fieldset data-kind="weekly">
+      <legend>On these days</legend>
+      {{range $i, $n := .Days}}<label class="inline"><input type="checkbox" name="wd" value="{{$i}}" {{if hasDay $.F.Weekdays $i}}checked{{end}}>{{$n}}</label>{{end}}
+    </fieldset>
+
+    <div class="grid" data-kind="interval">
+      <label>Every how many days<input type="number" name="every" min="2" max="365" value="{{.F.Every}}"></label>
+      <label>Starting on<input type="date" name="from" value="{{.F.Date}}"></label>
+    </div>
+
+    <label data-kind="monthly">Day of the month
+      <select name="mday">
+        {{range seq 1 31}}<option value="{{.}}" {{if eq . $.F.Mday}}selected{{end}}>{{ordinal .}}</option>{{end}}
+        <option value="-1" {{if eq -1 .F.Mday}}selected{{end}}>Last day of the month</option>
+      </select>
+      <small class="muted">Months without that day use their last day.</small>
+    </label>
+
+    <div class="grid" data-kind="nth">
+      <label>Which
+        <select name="nth">{{range .Nths}}<option value="{{.Value}}" {{if eq .Value $.F.Mday}}selected{{end}}>{{.Label}}</option>{{end}}</select>
+      </label>
+      <label>Weekday
+        <select name="nthday">{{range $i, $n := .LongDays}}<option value="{{$i}}" {{if eq (printf "%d" $i) $.F.Weekdays}}selected{{end}}>{{$n}}</option>{{end}}</select>
+      </label>
+    </div>
+
+    <label data-kind="once">Date<input type="date" name="date" value="{{.F.Date}}"></label>
+
+    <div class="grid">
+      <label>Start time <small class="muted">(optional)</small><input type="time" name="at" value="{{.F.At}}"></label>
+      <label>End time <small class="muted">(optional)</small><input type="time" name="until" value="{{.F.Until}}"></label>
+    </div>
+
+    <details data-kind="daily weekly interval monthly nth" {{if or .F.StartDate .F.EndDate}}open{{end}}>
+      <summary>Only during a period <small class="muted">(e.g. a festival season)</small></summary>
+      <div class="grid">
+        <label>Active from<input type="date" name="start_date" value="{{.F.StartDate}}"></label>
+        <label>Active until<input type="date" name="end_date" value="{{.F.EndDate}}"></label>
+      </div>
+    </details>
+
+    <label><input type="checkbox" role="switch" name="important" {{if .F.Important}}checked{{end}}> Important — highlighted on the sheet</label>
+
+    <div class="grid">
+      <button type="submit">{{if .F.ID}}Save changes{{else}}Add task{{end}}</button>
+      {{if .F.ID}}<a role="button" class="secondary outline" href="/admin/tasks">Cancel</a>{{end}}
+    </div>
+  </form>
+</article>
+
+<article>
+  <header><b>👀 Preview a sheet</b></header>
+  <form method="get" action="/admin/tasks">
+    <div class="grid">
+      <input type="date" name="pdate" value="{{.PDate}}" aria-label="Day">
+      <select name="puser" aria-label="Worker">{{range .Workers}}<option value="{{.ID}}" {{if eq .ID $.PUser}}selected{{end}}>{{.Name}}</option>{{end}}</select>
+    </div>
+    <button type="submit" class="outline">Preview</button>
+  </form>
+  {{if .PUser}}
+    {{template "tasklist" .Preview}}
+    <a role="button" class="secondary" href="/admin/sheet?user={{.PUser}}&date={{.PDate}}">🖨 Print this sheet</a>
+  {{else}}<p class="muted">Add a worker to preview sheets.</p>{{end}}
+</article>
+</div>
+
+<h3>All tasks</h3>
+<div class="overflow-auto">
+<table class="striped">
+  <thead><tr><th>Task</th><th>For</th><th>When</th><th>Time</th><th></th></tr></thead>
+  <tbody>
+  {{range .Tasks}}<tr class="{{if not .Active}}paused{{end}}">
+    <td class="wrap">{{if .Important}}<span class="badge red">!</span> {{end}}<b>{{.Title}}</b>{{if not .Active}} <span class="badge gray">paused</span>{{end}}
+      {{with .Notes}}<br><small class="muted">{{.}}</small>{{end}}</td>
+    <td class="nowrap">{{.Who}}</td>
+    <td class="wrap">{{.Schedule}}</td>
+    <td class="nowrap">{{or .Time "–"}}</td>
+    <td><div class="row-actions">
+      <a role="button" class="outline sm" href="/admin/tasks/{{.ID}}">Edit</a>
+      <form method="post" action="/admin/tasks/{{.ID}}/toggle"><button class="outline secondary sm">{{if .Active}}Pause{{else}}Resume{{end}}</button></form>
+      <form method="post" action="/admin/tasks/{{.ID}}/delete" data-confirm="Delete “{{.Title}}”?"><button class="outline contrast sm">Delete</button></form>
+    </div></td>
+  </tr>{{else}}<tr><td colspan="5">No tasks yet — add the first one above.</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+{{template "foot" .}}{{end}}

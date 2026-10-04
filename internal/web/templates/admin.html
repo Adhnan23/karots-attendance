@@ -1,0 +1,126 @@
+{{define "users"}}{{template "head" .}}
+<h2>Users</h2>
+<article>
+  <header><b>{{if .F.ID}}✏️ Edit {{.F.Name}}{{else}}➕ Add a user{{end}}</b></header>
+  <form method="post" action="/admin/users{{if .F.ID}}/{{.F.ID}}{{end}}">
+    <div class="grid">
+      <label>Name<input name="name" value="{{.F.Name}}" required maxlength="80"></label>
+      <label>Phone number <small class="muted">(used to log in)</small><input name="phone" type="tel" inputmode="tel" value="{{.F.Phone}}" required></label>
+    </div>
+    <div class="grid">
+      <label>Role
+        <select name="role">
+          <option value="worker" {{if eq .F.Role "worker"}}selected{{end}}>Worker</option>
+          <option value="admin" {{if eq .F.Role "admin"}}selected{{end}}>Admin</option>
+        </select>
+      </label>
+      <label>Expected arrival <small class="muted">(optional, for “late”)</small><input type="time" name="start_at" value="{{.F.StartAt}}"></label>
+      <label>{{if .F.ID}}New password <small class="muted">(empty = keep)</small>{{else}}Password{{end}}
+        <input name="password" type="password" autocomplete="new-password" minlength="6" {{if not .F.ID}}required{{end}}></label>
+    </div>
+    <fieldset>
+      <legend>Allowed devices <small class="muted">— workers only; none ticked = any registered shop device</small></legend>
+      {{range .Devices}}<label class="inline"><input type="checkbox" name="device" value="{{.ID}}" {{if has $.F.Devices .ID}}checked{{end}}>{{.Name}}</label>
+      {{else}}<small>No devices yet. <a href="/admin/devices">Register the shop computer</a> first.</small>{{end}}
+    </fieldset>
+    {{if .F.ID}}<label><input type="checkbox" role="switch" name="active" {{if .F.Active}}checked{{end}}> Active (can log in)</label>{{end}}
+    <div class="grid">
+      <button type="submit">{{if .F.ID}}Save{{else}}Add user{{end}}</button>
+      {{if .F.ID}}<a role="button" class="secondary outline" href="/admin/users">Cancel</a>{{end}}
+    </div>
+  </form>
+</article>
+
+<div class="overflow-auto">
+<table class="striped">
+  <thead><tr><th>Name</th><th>Phone</th><th>Role</th><th>Arrives</th><th>Devices</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {{range $u := .Users}}<tr class="{{if not $u.Active}}paused{{end}}">
+    <td><b>{{$u.Name}}</b></td><td class="nowrap">{{$u.Phone}}</td><td>{{$u.Role}}</td><td>{{or $u.StartAt "–"}}</td>
+    <td class="wrap">{{if eq $u.Role "admin"}}<small class="muted">anywhere</small>
+      {{else if $u.Devices}}{{range $.Devices}}{{if has $u.Devices .ID}}<span class="badge">{{.Name}}</span> {{end}}{{end}}
+      {{else}}<small class="muted">any shop device</small>{{end}}</td>
+    <td>{{if $u.Active}}<span class="badge green">active</span>{{else}}<span class="badge gray">inactive</span>{{end}}</td>
+    <td><a role="button" class="outline sm" href="/admin/users/{{$u.ID}}">Edit</a></td>
+  </tr>{{end}}
+  </tbody>
+</table>
+</div>
+{{template "foot" .}}{{end}}
+
+{{define "devices"}}{{template "head" .}}
+<h2>Shop devices</h2>
+<p>Workers can only log in from a registered browser. To add a shop PC or laptop: open this page <b>on that device</b>, log in as admin, and register it.</p>
+{{if .Current}}
+<p class="flash ok">✓ This browser is registered as <b>{{.Current}}</b>.</p>
+{{else}}
+<article>
+  <form method="post" action="/admin/devices">
+    <label>Name for this device<input name="name" required maxlength="60" placeholder="e.g. Counter PC"></label>
+    <button type="submit">Register this browser</button>
+  </form>
+</article>
+{{end}}
+<div class="overflow-auto">
+<table class="striped">
+  <thead><tr><th>Name</th><th>Registered</th><th>Last worker login</th><th>Assigned to</th><th></th></tr></thead>
+  <tbody>
+  {{range .Devices}}<tr>
+    <td><b>{{.Name}}</b></td><td class="nowrap">{{date .Created}}</td>
+    <td class="nowrap">{{if .LastSeen}}{{when .LastSeen}}{{else}}never{{end}}</td>
+    <td>{{if .Assigned}}{{.Assigned}} worker(s){{else}}<small class="muted">anyone</small>{{end}}</td>
+    <td><form method="post" action="/admin/devices/{{.ID}}/delete" data-confirm="Remove {{.Name}}? Workers won't be able to log in from it any more.">
+      <button class="outline contrast sm">Remove</button></form></td>
+  </tr>{{else}}<tr><td colspan="5">No devices yet.</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+<small class="muted">Clearing the browser's cookies removes its registration — just register it again and remove the old entry.</small>
+{{template "foot" .}}{{end}}
+
+{{define "security"}}{{template "head" .}}
+<h2>Security</h2>
+<div class="split">
+<article>
+  <header><b>🌐 Shop network lock <small class="muted">(optional)</small></b></header>
+  <p>Workers already need a registered device. For extra safety, also require the shop's internet IP.
+     Your IP right now: <code>{{.IP}}</code></p>
+  <form method="post" action="/admin/security">
+    <input type="hidden" name="action" value="ips">
+    <label>Allowed IPs or ranges for workers
+      <textarea name="worker_ips" rows="2" placeholder="e.g. 203.0.113.7 or 203.0.113.0/24">{{.IPs}}</textarea>
+      <small class="muted">Empty = any network. If the shop's IP changes, workers are blocked until you update it.</small>
+    </label>
+    <button type="submit">Save</button>
+  </form>
+</article>
+<article>
+  <header><b>🔑 Logins</b></header>
+  <p>{{.Sessions}} active login(s). After 5 wrong passwords an address is locked out for 15 minutes.</p>
+  <form method="post" action="/admin/security" data-confirm="Log out everyone except you?">
+    <input type="hidden" name="action" value="logout_all">
+    <button class="outline contrast">Log out everyone else</button>
+  </form>
+</article>
+</div>
+
+<h3>Activity</h3>
+<nav class="chips">
+  <a href="/admin/security" {{if eq .Group ""}}aria-current="page"{{end}}>All</a>
+  <a href="/admin/security?g=security" {{if eq .Group "security"}}aria-current="page"{{end}}>Security</a>
+  <a href="/admin/security?g=attendance" {{if eq .Group "attendance"}}aria-current="page"{{end}}>Attendance</a>
+  <a href="/admin/security?g=admin" {{if eq .Group "admin"}}aria-current="page"{{end}}>Admin changes</a>
+</nav>
+<div class="overflow-auto">
+<table class="striped">
+  <thead><tr><th>When</th><th>Who</th><th>What</th><th>Detail</th><th>IP</th></tr></thead>
+  <tbody>
+  {{range .Events}}<tr>
+    <td class="nowrap">{{when .At}}</td><td>{{.Who}}</td><td class="nowrap">{{eventBadge .Kind}}</td>
+    <td class="wrap"><small>{{.Detail}}</small></td><td><small class="muted">{{.IP}}</small></td>
+  </tr>{{else}}<tr><td colspan="5">Nothing yet.</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+<small class="muted">Showing the latest 300.</small>
+{{template "foot" .}}{{end}}
